@@ -49,13 +49,17 @@ namespace magnet_to_webui
 				return;
 			}
 
-			if (!File.Exists("Torrent.json"))
+			var path = System.Reflection.Assembly.GetEntryAssembly().Location;
+			path = Path.GetDirectoryName(path);
+
+			var settingsPath = Path.Combine(path, "Torrent.json");
+			if (!File.Exists(settingsPath))
 			{
-				File.WriteAllText("Torrent.json", JsonConvert.SerializeObject(_torrentSettings, Formatting.Indented));
+				File.WriteAllText(settingsPath, JsonConvert.SerializeObject(_torrentSettings, Formatting.Indented));
 				return;
 			}
 
-			_torrentSettings = JsonConvert.DeserializeObject<TorrentSettings>(File.ReadAllText("Torrent.json"));
+			_torrentSettings = JsonConvert.DeserializeObject<TorrentSettings>(File.ReadAllText(settingsPath));
 
 			var magnetUrl = args[0];
 
