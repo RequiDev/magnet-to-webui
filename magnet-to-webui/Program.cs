@@ -1,18 +1,26 @@
 ﻿using System;
 using System.Diagnostics;
+using System.IO;
 using System.Net;
 using System.Security.Principal;
+using System.Windows.Forms;
 using Microsoft.Win32;
 using RestSharp;
+using Newtonsoft.Json;
 
 namespace magnet_to_webui
 {
+	internal class TorrentSettings
+	{
+		public string WebUrl { get; set; }
+		public string Username { get; set; }
+		public string Password { get; set; }
+		public string SavePath { get; set; }
+	}
+
 	internal class Program
 	{
-		private const string WebUrl = "YOUR_WEBUI_URL";
-		private const string Username = "YOUR_USERNAME";
-		private const string Password = "YOUR_PASSWORD";
-		private const string SavePath = "YOUR_SAVE_PATH";
+		private static TorrentSettings _torrentSettings = new TorrentSettings();
 
 		private static void Main(string[] args)
 		{
@@ -36,9 +44,18 @@ namespace magnet_to_webui
 				var key = Registry.ClassesRoot.CreateSubKey("magnet");
 				key?.SetValue("", "URL:magnet");
 				key?.SetValue("URL Protocol", "");
+				key?.SetValue("FriendlyTypeName", "Magnet URL");
 				key?.CreateSubKey("shell")?.CreateSubKey("open")?.CreateSubKey("command")?.SetValue("", $"\"{System.Reflection.Assembly.GetEntryAssembly().Location}\" \"%1\"");
 				return;
 			}
+
+			if (!File.Exists("Torrent.json"))
+			{
+				File.WriteAllText("Torrent.json", JsonConvert.SerializeObject(_torrentSettings, Formatting.Indented));
+				return;
+			}
+
+			_torrentSettings = JsonConvert.DeserializeObject<TorrentSettings>(File.ReadAllText("Torrent.json"));
 
 			var magnetUrl = args[0];
 
@@ -47,25 +64,24 @@ namespace magnet_to_webui
 			var cookies = new CookieContainer();
 			client.CookieContainer = cookies;
 
-			client.BaseUrl = new Uri($"{WebUrl}/login");
+			client.BaseUrl = new Uri($"{_torrentSettings.WebUrl}/login");
 			request.Method = Method.POST;
-			request.AddParameter("username", Username);
-			request.AddParameter("password", Password);
+			request.AddParameter("username", _torrentSettings.Username);
+			request.AddParameter("password", _torrentSettings.Password);
 
 			client.Execute(request);
 			request.Parameters.Clear();
 
-			client.BaseUrl = new Uri($"{WebUrl}/command/download");
+			client.BaseUrl = new Uri($"{_torrentSettings.WebUrl}/command/download");
 			request.Method = Method.POST;
 			request.AddParameter("urls", magnetUrl);
-
-			request.AddParameter("savepath", SavePath);
+			request.AddParameter("savepath", $"{_torrentSettings.SavePath}");
 
 			client.Execute(request);
 			request.Parameters.Clear();
 
 			// gotta do it clean, you know?
-			client.BaseUrl = new Uri($"{WebUrl}/logout");
+			client.BaseUrl = new Uri($"{_torrentSettings.WebUrl}/logout");
 			request.Method = Method.POST;
 
 			client.Execute(request);
